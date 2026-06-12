@@ -1,42 +1,64 @@
-// ============================================================
-// 🎯 TODO 5: Rotas de autenticação
-// ============================================================
 import { Router, Request, Response } from "express";
-// 🎯 TODO: import * as UserModel from "../models/userModel";
+import * as UserModel from "../models/userModel";
 
 export const authRoutes = Router();
 
-// 🎯 TODO 6: GET /login — renderizar "login" com flash
 authRoutes.get("/login", (req: Request, res: Response) => {
-  res.render("login", { flash: null });
+  const flash = req.session.flash || null;
+  req.session.flash = null; 
+  res.render("login", { flash });
 });
 
-// 🎯 TODO 7: GET /registro — renderizar "registro" com flash
 authRoutes.get("/registro", (req: Request, res: Response) => {
-  res.render("registro", { flash: null });
+  const flash = req.session.flash || null;
+  req.session.flash = null;
+  res.render("registro", { flash });
 });
 
-// 🎯 TODO 8: POST /registro
-// Validar nome/email/senha (min 6 chars)
-// UserModel.registrar(nome, email, senha)
-// Se erro (email duplicado): flash + redirect /registro
-// Se ok: flash "Conta criada!" + redirect /login
 authRoutes.post("/registro", async (req: Request, res: Response) => {
-  // TODO: implementar registro
-  res.redirect("/registro");
+  const { nome, email, senha } = req.body;
+
+  if (!nome || !email || !senha || senha.trim().length < 6) {
+    req.session.flash = "Inconsistência nos dados fornecidos. A senha deve possuir no mínimo 6 caracteres.";
+    return res.redirect("/registro");
+  }
+
+  try {
+    await UserModel.registrar(nome, email, senha);
+    req.session.flash = "Conta criada com sucesso!";
+    return res.redirect("/login");
+  } catch (error: any) {
+    req.session.flash = error.message || "Falha operacional ao registrar usuário.";
+    return res.redirect("/registro");
+  }
 });
 
-// 🎯 TODO 9: POST /login
-// UserModel.login(email, senha)
-// Se null: flash "Email ou senha incorretos" + redirect /login
-// Se ok: session.userId, session.userName, redirect /tarefas
 authRoutes.post("/login", async (req: Request, res: Response) => {
-  // TODO: implementar login
-  res.redirect("/login");
+  const { email, senha } = req.body;
+
+  if (!email || !senha) {
+    req.session.flash = "Parâmetros obrigatórios ausentes.";
+    return res.redirect("/login");
+  }
+
+  const usuario = await UserModel.login(email, senha);
+
+  if (!usuario) {
+    req.session.flash = "Email ou senha incorretos";
+    return res.redirect("/login");
+  }
+
+  req.session.userId = usuario.id;
+  req.session.userName = usuario.nome;
+  return res.redirect("/tarefas");
 });
 
-// 🎯 TODO 10: GET /logout — req.session.destroy
 authRoutes.get("/logout", (req: Request, res: Response) => {
-  // TODO: destruir session
-  res.redirect("/login");
+  req.session.destroy((err) => {
+    if (err) {
+      return res.redirect("/tarefas");
+    }
+    res.clearCookie("connect.sid");
+    return res.redirect("/login");
+  });
 });
