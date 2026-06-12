@@ -13,11 +13,13 @@
 // ============================================================
 
 import "express-session";
+import { Role } from "../models/userModel";
 
 declare module "express-session" {
   interface SessionData {
     userId: number;
     userName: string;
+    role: Role;
     flash: string | null;
   }
 }

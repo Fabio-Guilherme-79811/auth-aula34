@@ -1,36 +1,17 @@
-// ============================================================
-// 🎯 TODO 4: Model de Usuários com bcrypt
-// ============================================================
-// import { readFile, writeFile } from "fs/promises";
-// import bcrypt from "bcrypt";
-//
-// interface User { id: number; nome: string; email: string; senha: string; }
-// const ARQUIVO = "dados/usuarios.json";
-// const SALT_ROUNDS = 10;
-//
-// Funções para criar:
-//   carregar(): Promise<User[]>
-//   salvar(users: User[]): Promise<void>
-//   buscarPorEmail(email: string): Promise<User | undefined>
-//   buscarPorId(id: number): Promise<User | undefined>
-//   registrar(nome, email, senhaTexto): Promise<User>
-//     → verificar email duplicado
-//     → bcrypt.hash(senhaTexto, SALT_ROUNDS)
-//     → salvar com hash
-//   login(email, senhaTexto): Promise<User | null>
-//     → buscar por email
-//     → bcrypt.compare(senhaTexto, user.senha)
-//     → retornar user se correto, null se errado
-// ============================================================
-
 import { readFile, writeFile } from "fs/promises";
 import bcrypt from "bcrypt";
+
+export enum Role {
+  ADMIN = "ADMIN",
+  USER = "USER"
+}
 
 export interface User {
   id: number;
   nome: string;
   email: string;
   senha: string;
+  role: Role;
 }
 
 const ARQUIVO = "dados/usuarios.json";
@@ -38,8 +19,7 @@ const SALT_ROUNDS = 10;
 
 async function carregar(): Promise<User[]> {
   try {
-    const conteudo = await readFile(ARQUIVO, "utf-8");
-    return JSON.parse(conteudo);
+    return JSON.parse(await readFile(ARQUIVO, "utf-8"));
   } catch {
     await writeFile(ARQUIVO, "[]");
     return [];
@@ -50,14 +30,8 @@ async function salvar(users: User[]): Promise<void> {
   await writeFile(ARQUIVO, JSON.stringify(users, null, 2));
 }
 
-export async function buscarPorEmail(email: string): Promise<User | undefined> {
-  const users = await carregar();
-  return users.find(u => u.email.toLowerCase() === email.toLowerCase().trim());
-}
-
-export async function buscarPorId(id: number): Promise<User | undefined> {
-  const users = await carregar();
-  return users.find(u => u.id === id);
+export async function listarTodos(): Promise<User[]> {
+  return await carregar();
 }
 
 export async function registrar(nome: string, email: string, senhaTexto: string): Promise<User> {
@@ -65,9 +39,11 @@ export async function registrar(nome: string, email: string, senhaTexto: string)
   const emailTratado = email.toLowerCase().trim();
 
   if (users.some(u => u.email.toLowerCase() === emailTratado)) {
-    throw new Error("Identificador de e-mail já existente no banco de dados.");
+    throw new Error("E-mail duplicado.");
   }
 
+  // Atribuição automática de ADMIN para o primeiro registro (coleção vazia)
+  const role = users.length === 0 ? Role.ADMIN : Role.USER;
   const hashSenha = await bcrypt.hash(senhaTexto, SALT_ROUNDS);
 
   const novoUsuario: User = {
@@ -75,6 +51,7 @@ export async function registrar(nome: string, email: string, senhaTexto: string)
     nome: nome.trim(),
     email: emailTratado,
     senha: hashSenha,
+    role
   };
 
   users.push(novoUsuario);
@@ -83,9 +60,10 @@ export async function registrar(nome: string, email: string, senhaTexto: string)
 }
 
 export async function login(email: string, senhaTexto: string): Promise<User | null> {
-  const usuario = await buscarPorEmail(email);
+  const users = await carregar();
+  const usuario = users.find(u => u.email === email.toLowerCase().trim());
   if (!usuario) return null;
 
-  const correspondencia = await bcrypt.compare(senhaTexto, usuario.senha);
-  return correspondencia ? usuario : null;
+  const match = await bcrypt.compare(senhaTexto, usuario.senha);
+  return match ? usuario : null;
 }
