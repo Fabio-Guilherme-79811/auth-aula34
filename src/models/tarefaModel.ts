@@ -1,34 +1,47 @@
-// ✅ PRONTO — Model de Tarefas (não precisa alterar)
-import { readFile, writeFile } from "fs/promises";
+import { promises as fs } from "fs";
+import path from "path";
+
+const caminhoArquivo = path.join(__dirname, "../../dados/tarefas.json");
 
 export interface Tarefa {
   id: number;
+  descricao: string;
   userId: number;
-  texto: string;
   concluida: boolean;
-  criadaEm: string;
 }
-
-const ARQUIVO = "dados/tarefas.json";
 
 async function carregar(): Promise<Tarefa[]> {
-  try { return JSON.parse(await readFile(ARQUIVO, "utf-8")); }
-  catch { await writeFile(ARQUIVO, "[]"); return []; }
+  try {
+    const dados = await fs.readFile(caminhoArquivo, "utf-8");
+    return JSON.parse(dados) as Tarefa[];
+  } catch (error) {
+    if ((error as { code?: string }).code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
 }
-async function salvar(t: Tarefa[]): Promise<void> {
-  await writeFile(ARQUIVO, JSON.stringify(t, null, 2));
+
+async function salvar(tarefas: Tarefa[]): Promise<void> {
+  await fs.writeFile(caminhoArquivo, JSON.stringify(tarefas, null, 2), "utf-8");
 }
 
 export async function listarPorUsuario(userId: number): Promise<Tarefa[]> {
-  return (await carregar()).filter(t => t.userId === userId);
+  const todas = await carregar();
+  return todas.filter(t => t.userId === userId);
 }
 
-export async function adicionar(userId: number, texto: string): Promise<Tarefa> {
+export async function listarTodas(): Promise<Tarefa[]> {
+  return await carregar();
+}
+
+export async function adicionar(descricao: string, userId: number): Promise<Tarefa> {
   const todas = await carregar();
   const nova: Tarefa = {
-    id: (todas.at(-1)?.id ?? 0) + 1,
-    userId, texto: texto.trim(), concluida: false,
-    criadaEm: new Date().toLocaleDateString("pt-BR"),
+    id: todas.length > 0 ? todas[todas.length - 1].id + 1 : 1,
+    descricao,
+    userId,
+    concluida: false,
   };
   todas.push(nova);
   await salvar(todas);

@@ -1,10 +1,10 @@
 import { Router } from "express";
-import * as TarefaController from "../controllers/tarefaController"; // Exemplo de refatoração para controller
+import * as TarefaController from "../controllers/tarefaController"; // Removed .ts extension
 import { requireAuth } from "../middlewares/authMiddleware";
 
 export const tarefaRoutes = Router();
 
-// Middleware aplicado a todas as rotas do roteador
+// Middleware applied to all routes in this router
 tarefaRoutes.use(requireAuth);
 
 tarefaRoutes.get("/tarefas", TarefaController.listar);
